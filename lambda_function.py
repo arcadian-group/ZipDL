@@ -9,6 +9,8 @@ import boto3
 from botocore.vendored import requests
 import json
 import logging
+import zipfile
+import os
 
 #Set to False to allow self-signed/invalid ssl certificates
 verify=False
@@ -66,7 +68,34 @@ def lambda_handler(event, context):
     r = requests.get(archive_url,verify=verify,headers=headers)
     with open(temp_archive, "wb") as codearchive:
         codearchive.write(r.content)
+    # remove nested directory from zip file
+    clean_archive = clean_zipfile(temp_archive)
     # upload the archive to s3 bucket
     logger.info("Uploading zip to S3://%s/%s" % (OutputBucket,s3_archive_file))
-    s3_client.upload_file(temp_archive,OutputBucket, s3_archive_file)
+    s3_client.upload_file(clean_archive,OutputBucket, s3_archive_file)
     logger.info('Upload Complete')
+
+def clean_zipfile(archive):
+    zip_ref = zipfile.ZipFile(archive, 'r')
+    zip_ref.extractall('/tmp/archive/')
+    zip_ref.close()
+    top = '/tmp/archive'
+    dirs = [os.path.abspath(name) for name in os.listdir(top)]
+    loc_dir = dirs[0]
+    paths = os.path.split(loc_dir)
+    path = paths[len(paths) - 1]
+    print path
+    zipf = zipfile.ZipFile('/tmp/new_archive.zip', 'w', zipfile.ZIP_DEFLATED)
+    zipdir('/tmp/archive/' + path, zipf)
+    zipf.close()
+    return '/tmp/new_archive.zip'
+
+def zipdir(path, ziph):
+    # ziph is zipfile handle
+    for root, _dirs, files in os.walk(path):
+        for ffile in files:
+            print os.path.relpath(os.path.join(root, ffile), os.path.join(path)) + ffile
+            ziph.write(os.path.join(root, ffile), os.path.relpath(os.path.join(root, ffile), os.path.join(path)))
+
+# if __name__ == "__main__":
+#     clean_zipfile("./test.zip")
