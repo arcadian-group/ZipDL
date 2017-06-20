@@ -94,7 +94,6 @@ def zipdir(path, ziph):
     # ziph is zipfile handle
     for root, _dirs, files in os.walk(path):
         for ffile in files:
-            print os.path.relpath(os.path.join(root, ffile), os.path.join(path)) + ffile
             ziph.write(os.path.join(root, ffile), os.path.relpath(os.path.join(root, ffile), os.path.join(path)))
 
 # if __name__ == "__main__":
